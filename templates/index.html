@@ -1,1 +1,200 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Auto-Headlight – USB & CSI</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px}
+    fieldset{margin:16px 0;border:1px solid #ddd;border-radius:12px;padding:16px}
+    legend{font-weight:700}
+    label{display:block;margin-top:8px}
+    input[type="text"],input[type="number"],select{width:100%;max-width:240px;padding:6px}
+    .row{display:flex;gap:16px;flex-wrap:wrap}
+    .row>div{flex:1;min-width:220px}
+    .btn{display:inline-block;padding:10px 14px;border-radius:10px;border:1px solid #ccc;background:#f8f8f8;cursor:pointer;margin-right:8px}
+    .btn.primary{background:#0a7;color:#fff;border-color:#086}
+    .btn.warn{background:#c33;color:#fff;border-color:#a11}
+    .status{padding:10px;border:1px solid #ddd;border-radius:10px;background:#fafafa;margin:8px 0}
+    .note{font-size:.9em;color:#666}
+    textarea{width:100%;font-family:monospace}
+    .card{border:1px solid #ddd;border-radius:12px;padding:12px}
+  </style>
+</head>
+<body>
+  <h1>Auto-Headlight</h1>
+
+  <div class="status"><strong>Status:</strong> {{ 'Erkennung läuft' if running else 'Gestoppt' }} — <strong>Aktive Quelle:</strong> {{ state.camera }}</div>
+
+  <div style="margin-bottom:8px">
+    <form method="post" action="/start" style="display:inline"><button class="btn primary" type="submit">Start</button></form>
+    <form method="post" action="/stop"  style="display:inline"><button class="btn warn"    type="submit">Stop</button></form>
+    <a class="btn" href="/import">Import (YAML/JSON)</a>
+  </div>
+
+  <div class="card">
+    <h2>Kamera schnell umschalten</h2>
+    <form method="post" action="/switch" class="row">
+      <div>
+        <label>Zielkamera</label>
+        <select name="camera_index">
+          {% if devices.csi_available %}
+            <option value="0">CSI (Index 0, Picamera2)</option>
+          {% endif %}
+          {% for dev in devices.video_nodes %}
+            <option value="{{ dev.index }}">USB /dev/video{{ dev.index }} — {{ dev.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="align-self:end">
+        <button class="btn primary" type="submit">Umschalten</button>
+      </div>
+    </form>
+    <p class="note">Hinweis: Beim Umschalten wird die Erkennung (falls aktiv) kurz neu gestartet.</p>
+  </div>
+
+  <form method="post" action="/apply">
+    <fieldset>
+      <legend>Quelle (Details)</legend>
+      <div class="row">
+        <div>
+          <label>source_type</label>
+          <select name="camera.source_type">
+            <option value="camera" {{ 'selected' if cfg.camera.source_type=='camera' else '' }}>camera</option>
+            <option value="video"  {{ 'selected' if cfg.camera.source_type=='video'  else '' }}>video</option>
+          </select>
+        </div>
+        <div><label>camera_index</label><input type="number" name="camera.camera_index" value="{{ cfg.camera.camera_index }}"></div>
+        <div style="flex:1;min-width:280px"><label>video_path</label><input type="text" name="camera.video_path" value="{{ cfg.camera.video_path }}"></div>
+      </div>
+      <div class="row">
+        <div><label>width</label><input type="number" name="camera.width"  value="{{ cfg.camera.width }}"></div>
+        <div><label>height</label><input type="number" name="camera.height" value="{{ cfg.camera.height }}"></div>
+        <div><label>fps</label><input type="number" name="camera.fps"    value="{{ cfg.camera.fps }}"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>ROI (relativ 0..1)</legend>
+      <div class="row">
+        <div>
+          <label>oncoming (x1,y1,x2,y2)</label>
+          <div class="row">
+            <input type="number" step="0.01" name="roi.oncoming.0" value="{{ cfg.roi.oncoming[0] }}">
+            <input type="number" step="0.01" name="roi.oncoming.1" value="{{ cfg.roi.oncoming[1] }}">
+            <input type="number" step="0.01" name="roi.oncoming.2" value="{{ cfg.roi.oncoming[2] }}">
+            <input type="number" step="0.01" name="roi.oncoming.3" value="{{ cfg.roi.oncoming[3] }}">
+          </div>
+        </div>
+        <div>
+          <label>near (x1,y1,x2,y2)</label>
+          <div class="row">
+            <input type="number" step="0.01" name="roi.near.0" value="{{ cfg.roi.near[0] }}">
+            <input type="number" step="0.01" name="roi.near.1" value="{{ cfg.roi.near[1] }}">
+            <input type="number" step="0.01" name="roi.near.2" value="{{ cfg.roi.near[2] }}">
+            <input type="number" step="0.01" name="roi.near.3" value="{{ cfg.roi.near[3] }}">
+          </div>
+        </div>
+      </div>
+      <div class="note">x1/y1 = oben links, x2/y2 = unten rechts.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>HSV-Schwellen</legend>
+      {% macro triplet(label, arrname) -%}
+        <div><label>{{ label }} (H,S,V)</label>
+          <div class="row">
+            <input type="number" name="thresholds.{{arrname}}.0" value="{{ cfg.thresholds[arrname][0] }}">
+            <input type="number" name="thresholds.{{arrname}}.1" value="{{ cfg.thresholds[arrname][1] }}">
+            <input type="number" name="thresholds.{{arrname}}.2" value="{{ cfg.thresholds[arrname][2] }}">
+          </div>
+        </div>
+      {%- endmacro %}
+      <div class="row">
+        {{ triplet("white_min", "white_min") }}
+        {{ triplet("white_max", "white_max") }}
+      </div>
+      <div class="row">
+        {{ triplet("yellow_min", "yellow_min") }}
+        {{ triplet("yellow_max", "yellow_max") }}
+      </div>
+      <div class="row">
+        {{ triplet("red1_min", "red1_min") }}
+        {{ triplet("red1_max", "red1_max") }}
+      </div>
+      <div class="row">
+        {{ triplet("red2_min", "red2_min") }}
+        {{ triplet("red2_max", "red2_max") }}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Konturen</legend>
+      <div class="row">
+        <div><label>min_area_oncoming</label><input type="number" name="contours.min_area_oncoming" value="{{ cfg.contours.min_area_oncoming }}"></div>
+        <div><label>min_area_street</label><input type="number" name="contours.min_area_street"   value="{{ cfg.contours.min_area_street }}"></div>
+        <div><label>min_area_tail</label><input type="number" name="contours.min_area_tail"       value="{{ cfg.contours.min_area_tail }}"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Timing & GPIO</legend>
+      <div class="row">
+        <div><label>confirm_frames</label><input type="number" name="timing.confirm_frames" value="{{ cfg.timing.confirm_frames }}"></div>
+        <div><label>hold_high_ms</label><input type="number" name="timing.hold_high_ms" value="{{ cfg.timing.hold_high_ms }}"></div>
+        <div><label>hold_low_ms</label><input type="number" name="timing.hold_low_ms"  value="{{ cfg.timing.hold_low_ms }}"></div>
+      </div>
+      <div class="row">
+        <div><label>highbeam_pin (BCM)</label><input type="number" name="gpio.highbeam_pin" value="{{ cfg.gpio.highbeam_pin }}"></div>
+        <div><label>safety_pin (BCM)</label><input type="number" name="gpio.safety_pin" value="{{ cfg.gpio.safety_pin }}"></div>
+        <div><label>active_high</label>
+          <select name="gpio.active_high">
+            <option value="true"  {{ 'selected' if cfg.gpio.active_high else '' }}>true</option>
+            <option value="false" {{ 'selected' if not cfg.gpio.active_high else '' }}>false</option>
+          </select></div>
+        <div><label>invert_relay</label>
+          <select name="gpio.invert_relay">
+            <option value="false" {{ 'selected' if not cfg.gpio.invert_relay else '' }}>false</option>
+            <option value="true"  {{ 'selected' if cfg.gpio.invert_relay else '' }}>true</option>
+          </select></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Anzeige</legend>
+      <div class="row">
+        <div><label>draw overlays</label>
+          <select name="ui.draw">
+            <option value="true"  {{ 'selected' if cfg.ui.draw else '' }}>true</option>
+            <option value="false" {{ 'selected' if not cfg.ui.draw else '' }}>false</option>
+          </select></div>
+        <div><label>show_window (nur mit Monitor)</label>
+          <select name="ui.show_window">
+            <option value="false" {{ 'selected' if not cfg.ui.show_window else '' }}>false</option>
+            <option value="true"  {{ 'selected' if cfg.ui.show_window else '' }}>true</option>
+          </select></div>
+      </div>
+    </fieldset>
+
+    <button class="btn primary" type="submit">Speichern</button>
+  </form>
+
+  <h2 style="margin-top:24px">Live-Video</h2>
+  <p class="note">Der Stream läuft nur, wenn die Erkennung gestartet ist.</p>
+  <div style="border:1px solid #ddd;border-radius:12px;padding:12px;display:inline-block;max-width:100%">
+    <img id="mjpeg" src="/stream" alt="Live-Stream" style="max-width:100%;height:auto;display:block">
+  </div>
+
+  {% if show_import %}
+    <h2 style="margin-top:24px">Konfiguration importieren</h2>
+    <p class="note">YAML oder JSON einfügen. Teilbäume werden gemerged (überschreiben vorhandene Werte).</p>
+    <form method="post" action="/import">
+      <textarea name="payload" rows="16"></textarea>
+      <div style="margin-top:8px">
+        <button class="btn primary" type="submit">Importieren</button>
+        <a class="btn" href="/">Abbrechen</a>
+      </div>
+    </form>
+  {% endif %}
+</body>
+</html>
 
