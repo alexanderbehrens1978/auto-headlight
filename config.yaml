@@ -1,0 +1,67 @@
+camera:
+  source_type: camera
+  camera_index: 0
+  video_path: ''
+  width: 1280
+  height: 720
+  fps: 30
+roi:
+  oncoming:
+  - 0.15
+  - 0.1
+  - 0.85
+  - 0.6
+  near:
+  - 0.1
+  - 0.6
+  - 0.9
+  - 0.98
+thresholds:
+  white_min:
+  - 0
+  - 0
+  - 200
+  white_max:
+  - 179
+  - 55
+  - 255
+  yellow_min:
+  - 15
+  - 80
+  - 120
+  yellow_max:
+  - 40
+  - 255
+  - 255
+  red1_min:
+  - 0
+  - 100
+  - 120
+  red1_max:
+  - 10
+  - 255
+  - 255
+  red2_min:
+  - 170
+  - 100
+  - 120
+  red2_max:
+  - 179
+  - 255
+  - 255
+contours:
+  min_area_oncoming: 8
+  min_area_street: 12
+  min_area_tail: 8
+timing:
+  confirm_frames: 3
+  hold_high_ms: 1000
+  hold_low_ms: 800
+gpio:
+  highbeam_pin: 17
+  safety_pin: 27
+  active_high: true
+  invert_relay: false
+ui:
+  draw: true
+  show_window: true

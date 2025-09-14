@@ -1,0 +1,8 @@
+flask
+pyyaml
+opencv-python
+numpy
+gpiozero
+# Picamera2 bitte per APT installieren:
+# sudo apt update && sudo apt install -y python3-picamera2
+
